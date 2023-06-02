@@ -1,0 +1,32 @@
+version: v1
+name: Proxy
+annotations:
+  proxy.conf/rate-limiting-enabled: true
+  proxy.conf/stack-trace-enabled: true
+  proxy.conf/replay-requests-enabled: true
+  proxy.conf/request-id-header: "X-Request-Id"
+spec:
+    server:
+      port: 5000
+    rules:
+    - host: example.com
+      http:
+        paths:
+        - path: /people
+          pathType: Prefix
+          portNumber: 4000
+        - path: /friends
+          pathType: Exact
+          portNumber: 8000
+    - host: viacep.com.br
+      http:
+        paths:
+        - path: /
+          pathType: Prefix
+          tls: true
+    - host: jsonplaceholder.typicode.com
+      http:
+        paths:
+        - path: /posts
+          pathType: Exact
+          tls: false
