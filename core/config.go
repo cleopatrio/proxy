@@ -1,4 +1,4 @@
-package config
+package core
 
 import (
 	"sync"
@@ -10,7 +10,7 @@ type config struct {
 	EnableReplayRequests bool
 	DefaultHTTPPort      int
 
-	RequestIdHeader string
+	HTTPRequestIdHeader string
 }
 
 var once sync.Once
@@ -19,8 +19,8 @@ var ProxyConfig config
 func init() {
 	once.Do(func() {
 		ProxyConfig = config{
-			RequestIdHeader: "X-Request-Id",
-			DefaultHTTPPort: 8080,
+			HTTPRequestIdHeader: "X-Request-Id",
+			DefaultHTTPPort:     8080,
 		}
 	})
 }

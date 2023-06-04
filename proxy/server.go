@@ -1,11 +1,12 @@
 package proxy
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/cleopatrio/proxy/config"
+	"github.com/cleopatrio/proxy/core"
 	"github.com/cleopatrio/proxy/logger"
 	"github.com/cleopatrio/proxy/middleware"
 	"github.com/gofiber/fiber/v2"
@@ -14,7 +15,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func Listen(proxyfile config.Proxyfile) {
+type Host struct{ Fiber *fiber.App }
+
+type Server struct {
+	App       *fiber.App
+	Hosts     map[string]*Host
+	Proxyfile core.Proxyfile
+}
+
+func Listen(proxyfile core.Proxyfile) {
 	server := fiber.New(fiber.Config{
 		DisableStartupMessage: true,
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
@@ -29,7 +38,7 @@ func Listen(proxyfile config.Proxyfile) {
 	}))
 
 	server.Use(requestid.New(requestid.Config{
-		Header: proxyfile.Annotations.RequestIdHeader,
+		Header: proxyfile.Annotations.HTTPRequestIdHeader,
 	}))
 
 	server.Use(middleware.RequestLoggerMiddleware)
@@ -37,27 +46,27 @@ func Listen(proxyfile config.Proxyfile) {
 	// ===================================
 	// NOTE: Proxy routes as per Proxyfile
 	// ===================================
-	proxy := Proxy{
-		Server: server,
-		Hosts:  map[string]*Host{},
+	proxy := Server{
+		App:       server,
+		Hosts:     map[string]*Host{},
+		Proxyfile: proxyfile,
 	}
 
 	for _, rule := range proxyfile.Rules() {
 		proxy.RegisterRule(rule)
 	}
 
-	// TODO: Handle request replay
 	// TODO: Handle rate limiting
 	// TODO: Handle caching
 
-	proxy.Server.Use(func(c *fiber.Ctx) error {
+	proxy.App.Use(func(c *fiber.Ctx) error {
 		if host := proxy.Get(c.Hostname()); host != nil {
 			logger.Logger.
 				WithFields(logrus.Fields{
 					"host": c.Hostname(),
 					"path": c.Path(),
 				}).
-				Info("Handling path for host ⚡️")
+				Info("Handling HTTP request 📨️")
 
 			host.Fiber.Handler()(c.Context())
 
@@ -74,17 +83,10 @@ func Listen(proxyfile config.Proxyfile) {
 		return c.SendStatus(fiber.StatusNotFound)
 	})
 
-	proxy.Server.Listen(fmt.Sprintf(":%d", proxyfile.Port()))
+	proxy.App.Listen(fmt.Sprintf(":%d", proxyfile.HTTPPort()))
 }
 
-type Host struct{ Fiber *fiber.App }
-
-type Proxy struct {
-	Server *fiber.App
-	Hosts  map[string]*Host
-}
-
-func (xy *Proxy) RegisterRule(rule config.ProxyRule) {
+func (xy *Server) RegisterRule(rule core.ProxyRule) {
 	app := fiber.New()
 
 	if xy.Hosts == nil {
@@ -101,7 +103,7 @@ func (xy *Proxy) RegisterRule(rule config.ProxyRule) {
 		*/
 		routerPath := func() string {
 			switch path.PathType {
-			case config.PrefixPathType:
+			case core.PrefixPathType:
 				return fmt.Sprintf("%s*", path.Path)
 			default:
 				return path.Path
@@ -109,9 +111,16 @@ func (xy *Proxy) RegisterRule(rule config.ProxyRule) {
 		}()
 
 		app.All(routerPath, func(c *fiber.Ctx) error {
+			defer func() {
+				if xy.Proxyfile.Annotations.ReplayRequestsEnabled && path.EnableReplay {
+					xy.ReplayRequest(c)
+				}
+			}()
+
 			response, err := xy.MakeHTTPRequest(c, path)
+
 			if err != nil {
-				return c.SendStatus(http.StatusInternalServerError)
+				return c.SendStatus(http.StatusBadGateway)
 			}
 
 			c.Status(response.StatusCode)
@@ -122,42 +131,45 @@ func (xy *Proxy) RegisterRule(rule config.ProxyRule) {
 			"host":     rule.Host,
 			"pathType": path.PathType,
 			"path":     path.Path,
-			"port":     path.Port,
+			"port":     path.PortNumber,
 			"tls":      path.TLS,
 		}).Debug("Registered route")
 	}
 }
 
-func (xy *Proxy) MakeHTTPRequest(c *fiber.Ctx, path config.ProxyPath) (*http.Response, error) {
-	downstreamURL := path.DownstreamURL(c.Hostname(), c.Path())
+func (xy *Server) MakeHTTPRequest(c *fiber.Ctx, path core.ProxyPath) (*http.Response, error) {
+	downstreamURL := path.RequestURL(c.Hostname(), c.Path())
 
-	logger.Logger.
-		WithFields(logrus.Fields{
-			"method": c.Method(),
-			"url":    downstreamURL,
-			"tls":    path.TLS,
-		}).
-		Info("Forwarding request downstream")
-
-	switch c.Method() {
-	case "GET":
-		return http.Get(downstreamURL)
-	case "POST":
-		return http.Post(downstreamURL, c.Get("Content-Type"), c.Request().BodyStream())
-	default:
-		// TODO: Implement other methods
+	if downstreamURL == nil {
+		return nil, errors.New(`invalid/unknown downstream url`)
 	}
 
-	return nil, nil
+	logger.Logger.
+		WithFields(logrus.Fields{"method": c.Method(), "url": downstreamURL.RequestURI(), "tls": path.TLS}).
+		Info("Sending HTTP request 📡")
+
+	headers := map[string][]string{}
+	for k, v := range c.GetReqHeaders() {
+		headers[k] = strings.Split(v, ",")
+	}
+
+	request := http.Request{
+		Method: c.Method(),
+		Header: headers,
+		URL:    downstreamURL,
+	}
+
+	if len(c.Body()) > 0 {
+		request.Body = &core.RequestBody{Data: c.Body()}
+	}
+
+	return http.DefaultClient.Do(&request)
 }
 
-func (xy *Proxy) Get(hostname string) *Host {
-	return xy.Hosts[normalizedHostname(hostname)]
-}
+func (xy *Server) Get(hostname string) *Host { return xy.Hosts[normalizedHostname(hostname)] }
 
 func normalizedHostname(hostname string) string {
-	components := strings.Split(hostname, ":")
-	if len(components) > 1 {
+	if components := strings.Split(hostname, ":"); len(components) > 1 {
 		return components[0]
 	}
 

@@ -1,13 +1,29 @@
 version: v1
 name: Proxy
 annotations:
+  # Globally enables or disables rate limiting.
+  # - If this setting is disabled, no rate limiting will be applied.
+  # - If this setting is enabled, each path can enable or disable this behavior.
   proxy.conf/rate-limiting-enabled: true
-  proxy.conf/stack-trace-enabled: true
+  # Globally enables or disables request playback.
+  # - If this setting is disabled, no requests will be replayed.
+  # - If this setting is enabled, each path can enable or disable this behavior.
   proxy.conf/replay-requests-enabled: true
-  proxy.conf/request-id-header: "X-Request-Id"
+  # A header that uniquely identifies each incoming http request.
+  proxy.conf/http-request-id-header: "X-Request-Id"
+  # Dump the application stack trace if/when unexpected server errors occur.
+  proxy.conf/stack-trace-enabled: true
 spec:
     server:
-      port: 5000
+      http:
+        port: 5000
+        replay:
+          host: localhost
+          port: 8090
+          suppressHeaders:
+            - name: "Authorization"
+            - name: "X-Request-Id"
+            - name: "X-Replay"
     rules:
     - host: example.com
       http:
@@ -28,5 +44,7 @@ spec:
       http:
         paths:
         - path: /posts
-          pathType: Exact
-          tls: false
+          pathType: Prefix
+          tls: true
+          enableRateLimit: true
+          enableReplay: true

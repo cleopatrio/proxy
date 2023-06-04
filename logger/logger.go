@@ -4,6 +4,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -19,7 +20,7 @@ func InitializeLogger(fields logrus.Fields) {
 }
 
 func init() {
-	logrus.SetFormatter(&logrus.TextFormatter{})
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.RFC3339Nano, FullTimestamp: true})
 	logrus.SetLevel(logrus.InfoLevel)
 
 	if level := os.Getenv("LOG_LEVEL"); level != "" {
