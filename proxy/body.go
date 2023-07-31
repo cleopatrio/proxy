@@ -1,4 +1,4 @@
-package core
+package proxy
 
 import (
 	"bytes"
@@ -6,8 +6,7 @@ import (
 )
 
 type RequestBody struct {
-	Data []byte
-
+	Data  []byte
 	state bytes.Buffer
 }
 

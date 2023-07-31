@@ -1,4 +1,4 @@
-package core
+package proxy
 
 import (
 	"fmt"
@@ -10,12 +10,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type PathType string
-
 const (
 	ExactPathType  PathType = "Exact"
 	PrefixPathType PathType = "Prefix"
 )
+
+type PathType string
 
 type ProxyPath struct {
 	Path            string   `yaml:"path" example:"/files"`

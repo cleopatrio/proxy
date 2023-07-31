@@ -1,9 +1,8 @@
-package middleware
+package proxy
 
 import (
 	"time"
 
-	"github.com/cleopatrio/proxy/core"
 	"github.com/cleopatrio/proxy/logger"
 	"github.com/sirupsen/logrus"
 
@@ -20,7 +19,7 @@ func RequestLoggerMiddleware(c *fiber.Ctx) error {
 
 	logger.Logger.
 		WithFields(logrus.Fields{
-			"request.id": c.GetRespHeader(core.ProxyConfig.HTTPRequestIdHeader),
+			"request.id": c.GetRespHeader(PxFile.Annotations.HTTPRequestIdHeader),
 			"port":       c.Port(),
 			"ip":         c.IP(),
 			"method":     c.Method(),

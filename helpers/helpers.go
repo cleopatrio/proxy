@@ -42,7 +42,7 @@ func Map[A any, B any](collection []A, transformFunc func(int, A) B) []B {
 //
 // Filter and return all even numbers:
 //
-// 	Filter([]int{16, 9, 25}, func(i, n int) bool { return n%2 == 0 }) // -> [16]
+//	Filter([]int{16, 9, 25}, func(i, n int) bool { return n%2 == 0 }) // -> [16]
 func Filter[T any](collection []T, inclusionTest func(int, T) bool) []T {
 	result := make([]T, 0)
 
@@ -59,7 +59,7 @@ func Filter[T any](collection []T, inclusionTest func(int, T) bool) []T {
 //
 // Example:
 //
-// 	Reduce([]Payments{{Amount: 25.99}, {Amount: 4.01}}, func(i int, p Payment) float64 { return p.Amount }, 0) // -> 30
+//	Reduce([]Payments{{Amount: 25.99}, {Amount: 4.01}}, func(i int, p Payment) float64 { return p.Amount }, 0) // -> 30
 func Reduce[T any](c []T, counter func(int, T) float64, initialCount float64) float64 {
 	sum := initialCount
 	for index, item := range c {

@@ -11,6 +11,12 @@ test: format
 run:
 	go run .
 
+build-for-docker:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -ldflags '-extldflags "-static"' -o proxy
+
+build-dockerfile:
+	docker build -t proxy . --build-arg GIT_COMMIT=$(GIT_COMMIT)
+
 examples:
 	@echo "=> [GET] request to <http://viacep.com.br> requesting information about a given CEP:"
 	@curl --connect-to viacep.com.br:80:localhost:5000 http://viacep.com.br/ws/29100010/json

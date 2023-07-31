@@ -15,36 +15,41 @@ annotations:
   proxy.conf/stack-trace-enabled: true
 spec:
     server:
-      http:
-        port: 5000
-        replay:
-          host: localhost
-          port: 8090
-          suppressHeaders:
-            - name: "Authorization"
-            - name: "X-Request-Id"
-            - name: "X-Replay"
+      port: 5000
+      replay:
+        scheme: http
+        host: localhost
+        port: 8000
+        pathRewriteSettings:
+          strategy: suppress
+        methodRewriteSettings:
+          strategy: rewrite
+          method: POST
+        suppressedHeaders:
+          - name: "Authorization"
+          - name: "X-Request-Id"
+          - name: "X-Replay"
     rules:
     - host: example.com
-      http:
-        paths:
-        - path: /people
-          pathType: Prefix
-          portNumber: 4000
-        - path: /friends
-          pathType: Exact
-          portNumber: 8000
+      paths:
+      - path: /people
+        pathType: Prefix
+        portNumber: 4000
+      - path: /friends
+        pathType: Exact
+        portNumber: 8000
+
     - host: viacep.com.br
-      http:
-        paths:
-        - path: /
-          pathType: Prefix
-          tls: true
+      paths:
+      - path: /
+        pathType: Prefix
+        tls: true
+        enableReplay: true
+
     - host: jsonplaceholder.typicode.com
-      http:
-        paths:
-        - path: /posts
-          pathType: Prefix
-          tls: true
-          enableRateLimit: true
-          enableReplay: true
+      paths:
+      - path: /posts
+        pathType: Prefix
+        tls: true
+        enableRateLimit: true
+        enableReplay: true
