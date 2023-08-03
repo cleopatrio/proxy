@@ -91,6 +91,10 @@ func Listen(proxyfile Proxyfile) {
 
 	server.Use(pprof.New(pprof.Config{Prefix: "/metrics"}))
 
+	server.Get("/metrics", monitor.New(monitor.Config{
+		Title:   "Proxy",
+		FontURL: "https://fonts.googleapis.com/css2?family=REM:wght@300;400;700&display=swap",
+	}))
 
 	server.Use(RequestLoggerMiddleware)
 
