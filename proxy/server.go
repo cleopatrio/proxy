@@ -7,6 +7,7 @@ import (
 
 	"github.com/cleopatrio/proxy/logger"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 	"github.com/sirupsen/logrus"
@@ -88,6 +89,9 @@ func Listen(proxyfile Proxyfile) {
 		Header: proxyfile.Annotations.HTTPRequestIdHeader,
 	}))
 
+	server.Use(pprof.New(pprof.Config{Prefix: "/metrics"}))
+
+
 	server.Use(RequestLoggerMiddleware)
 
 	// ===================================
@@ -129,10 +133,6 @@ func Listen(proxyfile Proxyfile) {
 
 		return c.SendStatus(fiber.StatusNotFound)
 	})
-
-	logger.Logger.
-		WithField("port", proxyfile.ServerPort()).
-		Info("Proxy server is running ⚡️")
 
 	proxy.App.Listen(fmt.Sprintf(":%d", proxyfile.ServerPort()))
 }

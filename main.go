@@ -27,12 +27,17 @@ func main() {
 
 	logger.Logger.
 		WithFields(logrus.Fields{
+			"replay.enabled":                      proxy.PxFile.ReplayEnabled(),
 			"replay.scheme":                       proxy.PxFile.ReplayConfig().Scheme,
 			"replay.host":                         proxy.PxFile.ReplayConfig().Host,
 			"replay.port":                         proxy.PxFile.ReplayConfig().Port,
 			"replay.pathRewriteSettings.strategy": proxy.PxFile.ReplayConfig().PathRewriteSettings.Strategy,
 			"server.port":                         proxy.PxFile.ServerConfig().Port,
 		}).Info("Proxy configuration ⚡️")
+
+	logger.Logger.
+		WithField("port", proxy.PxFile.ServerPort()).
+		Info("Proxy server is running ⚡️")
 
 	<-c
 }
